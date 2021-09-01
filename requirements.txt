@@ -1,0 +1,3 @@
+git+https://github.com/Rapptz/discord.py
+discord-ext-ui
+python-dotenv
