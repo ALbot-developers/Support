@@ -1,0 +1,25 @@
+{
+  "name": "albot-support",
+  "version": "1.0.0",
+  "description": "Albot公式サポートサーバー用プログラム",
+  "homepage": "https://github.com/ALbot-developers/Support#readme",
+  "bugs": {
+    "url": "https://github.com/ALbot-developers/Support/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ALbot-developers/Support.git"
+  },
+  "license": "ISC",
+  "author": "Hoshimikan6490",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
