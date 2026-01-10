@@ -13,13 +13,37 @@ const client = new Client({
 
 const token = process.env.TOKEN;
 
-client.once('clientReady', () => {
-	console.log(`Logged in as ${client.user.tag}`);
+///////////////////////////////////////////////////
+// 各種イベントのハンドラー
+fs.readdir('./events', (_err, files) => {
+	files.forEach((file) => {
+		if (!file.endsWith('.js')) return;
+		const event = require(`./events/${file}`);
+		const eventName = file.split('.')[0];
+		console.log(`[Event] Loaded: ${eventName}`);
+		client.on(eventName, event.bind(null, client));
+		delete require.cache[require.resolve(`./events/${file}`)];
+	});
 });
 
-client.on('messageCreate', (message) => {
-	message.reply('hi!');
+// コマンドのハンドラー
+client.commands = [];
+fs.readdir('./commands', (err, files) => {
+	if (err) throw err;
+	files.forEach((f) => {
+		try {
+			if (f.endsWith('.js')) {
+				const props = require(`./commands/${f}`);
+				const propsJson = props.data.toJSON();
+				client.commands.push(propsJson);
+				console.log(`[Command] Loaded: ${propsJson.name}`);
+			}
+		} catch (err) {
+			console.log(err);
+		}
+	});
 });
+///////////////////////////////////////////////////
 
 if (!token) {
 	console.error('No token provided. Set the TOKEN environment variable.');
