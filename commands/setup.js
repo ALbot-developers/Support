@@ -32,12 +32,7 @@ module.exports = {
 			// 各種カテゴリの準備
 			const openTicketCategoryId = process.env.OPEN_TICKET_CATEGORY_ID;
 			const supportRoleId = process.env.SUPPORT_ROLE_ID;
-			const closedTicketCategoryName = process.env.CLOSED_TICKET_CATEGORY_NAME;
-			if (
-				!openTicketCategoryId ||
-				!supportRoleId ||
-				!closedTicketCategoryName
-			) {
+			if (!openTicketCategoryId || !supportRoleId) {
 				return interaction.reply({
 					content:
 						'BOTの環境変数が正しく設定されていません。.envファイルを確認してください。',
