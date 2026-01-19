@@ -64,6 +64,101 @@ module.exports = async (client, interaction) => {
 				// 必要に応じてボタンのインタラクション処理のロジックを追加
 				const customId = interaction.customId;
 
+				if (customId.startsWith('openTicket_')) {
+					// チケット作成ボタンが押されたときの処理
+					await interaction.deferReply({
+						flags: MessageFlags.Ephemeral,
+					});
+
+					const customerUserId = interaction.user.id;
+					const supportChannel = await interaction.guild.channels.cache.find(
+						(channel) =>
+							//close済みのチケットはトピックが「closed: 000000」のようになるので、ここでは完全一致を使って確認する
+							channel.topic === customerUserId &&
+							channel.type === ChannelType.GuildText,
+					);
+					// 既にサポートチケットがある場合
+					if (supportChannel) {
+						return interaction.editReply({
+							content: `１人１チャンネルとさせていただいております。\n<#${supportChannel.id}>が既に存在しますので、そちらをご利用ください。`,
+							flags: MessageFlags.Ephemeral,
+						});
+					}
+
+					// サポート対応用のカテゴリーを取得
+					const categoryId = process.env.OPEN_TICKET_CATEGORY_ID;
+					const openTicketCategory =
+						interaction.guild.channels.cache.get(categoryId);
+					// サポート対応用のカテゴリーが見つからなかった場合
+					if (!openTicketCategory)
+						return interaction.channel.send(
+							'❌ サポート対応用のカテゴリーが見つかりませんでした。BOTおよびサーバーの管理者は以下の項目の確認をお願いします。\n- 環境変数 `OPEN_TICKET_CATEGORY_ID` が正しいか\n- サーバーにサポート対応用のカテゴリーが存在するか\n- BOTに適切な権限が付与されているか',
+						);
+
+					const customerUserName = interaction.user.username;
+					interaction.guild.channels
+						.create({
+							name: `${customerUserName}様対応`,
+							type: ChannelType.GuildText,
+							permissionOverwrites: [
+								{
+									id: interaction.guild.roles.everyone,
+									deny: [PermissionsBitField.Flags.ViewChannel],
+								},
+								{
+									id: customerUserId,
+									allow: [
+										PermissionsBitField.Flags.ViewChannel,
+										PermissionsBitField.Flags.ReadMessageHistory,
+										PermissionsBitField.Flags.SendMessages,
+										PermissionsBitField.Flags.AttachFiles,
+										PermissionsBitField.Flags.AddReactions,
+									],
+								},
+							],
+							parent: openTicketCategory.id,
+							topic: customerUserId,
+						})
+						.then(async (channel) => {
+							// サポートチケットの作成に成功した場合
+							const embed = new EmbedBuilder()
+								.setTitle('📪お問い合わせありがとうございます。')
+								.setDescription('ご用件をお書きください。')
+								.setFooter({
+									text: '業務連絡 ｜ 管理者は、以下のボタンでこのチャンネルを管理できます。',
+								})
+								.setColor(0x1f6e00);
+							const menuButton = new ActionRowBuilder().addComponents(
+								new ButtonBuilder()
+									.setCustomId('menu')
+									.setLabel('メニューを開く')
+									.setStyle(ButtonStyle.Primary)
+									.setEmoji('📚'),
+							);
+							const guideMessage = await channel.send({
+								content: `<@${customerUserId}>様へ`,
+								embeds: [embed],
+								components: [menuButton],
+							});
+
+							// 案内メッセージをサポートチャンネルにピン止め
+							guideMessage.pin();
+
+							// サポートチケットの作成完了メッセージを送信
+							await interaction.editReply({
+								content: `${channel}にてお伺い致します。そちらのチャンネルへご移動ください。`,
+								flags: MessageFlags.Ephemeral,
+							});
+						})
+						.catch(async (err) => {
+							await interaction.channel.send(
+								'サポートチケット作成時にエラーが発生しました。管理者が対応いたしますので、しばらくお待ちください。',
+							);
+							console.log(err);
+							return;
+						});
+				}
+
 				switch (customId) {
 					case 'support': {
 						// supportボタンが押されたときの処理
@@ -87,21 +182,21 @@ module.exports = async (client, interaction) => {
 										.setDescription(
 											'サブスクリプションに関係のないBOTの不具合のご報告など',
 										)
-										.setValue('bug_report_bot')
+										.setValue('bug_bot')
 										.setEmoji('🔥'),
 									new StringSelectMenuOptionBuilder()
 										.setLabel('不具合のご報告(Webサイト)')
 										.setDescription(
 											'サブスクリプションに関係のないWebサイトの不具合のご報告など',
 										)
-										.setValue('bug_report_website')
+										.setValue('bug_website')
 										.setEmoji('🔥'),
 									new StringSelectMenuOptionBuilder()
 										.setLabel('サブスクリプションに関する問い合わせ')
 										.setDescription(
 											'サブスクリプションの購入・更新・キャンセルなどに関する問い合わせ',
 										)
-										.setValue('subscription_inquiry')
+										.setValue('subscription')
 										.setEmoji('💳'),
 									new StringSelectMenuOptionBuilder()
 										.setLabel('その他の質問')
@@ -116,101 +211,6 @@ module.exports = async (client, interaction) => {
 							components: [dropdownMenu],
 							flags: MessageFlags.Ephemeral,
 						});
-						break;
-					}
-					case 'openTicket': {
-						// openTicketボタンが押されたときの処理
-						await interaction.deferReply({
-							flags: MessageFlags.Ephemeral,
-						});
-
-						const customerUserId = interaction.user.id;
-						const supportChannel = await interaction.guild.channels.cache.find(
-							(channel) =>
-								//close済みのチケットはトピックが「closed: 000000」のようになるので、ここでは完全一致を使って確認する
-								channel.topic === customerUserId &&
-								channel.type === ChannelType.GuildText,
-						);
-						// 既にサポートチケットがある場合
-						if (supportChannel) {
-							return interaction.editReply({
-								content: `１人１チャンネルとさせていただいております。\n<#${supportChannel.id}>が既に存在しますので、そちらをご利用ください。`,
-								flags: MessageFlags.Ephemeral,
-							});
-						}
-
-						// サポート対応用のカテゴリーを取得
-						const categoryId = process.env.OPEN_TICKET_CATEGORY_ID;
-						const openTicketCategory =
-							interaction.guild.channels.cache.get(categoryId);
-						// サポート対応用のカテゴリーが見つからなかった場合
-						if (!openTicketCategory)
-							return interaction.channel.send(
-								'❌ サポート対応用のカテゴリーが見つかりませんでした。BOTおよびサーバーの管理者は以下の項目の確認をお願いします。\n- 環境変数 `OPEN_TICKET_CATEGORY_ID` が正しいか\n- サーバーにサポート対応用のカテゴリーが存在するか\n- BOTに適切な権限が付与されているか',
-							);
-
-						const customerUserName = interaction.user.username;
-						interaction.guild.channels
-							.create({
-								name: `${customerUserName}様対応`,
-								type: ChannelType.GuildText,
-								permissionOverwrites: [
-									{
-										id: interaction.guild.roles.everyone,
-										deny: [PermissionsBitField.Flags.ViewChannel],
-									},
-									{
-										id: customerUserId,
-										allow: [
-											PermissionsBitField.Flags.ViewChannel,
-											PermissionsBitField.Flags.ReadMessageHistory,
-											PermissionsBitField.Flags.SendMessages,
-											PermissionsBitField.Flags.AttachFiles,
-											PermissionsBitField.Flags.AddReactions,
-										],
-									},
-								],
-								parent: openTicketCategory.id,
-								topic: customerUserId,
-							})
-							.then(async (channel) => {
-								// サポートチケットの作成に成功した場合
-								const embed = new EmbedBuilder()
-									.setTitle('📪お問い合わせありがとうございます。')
-									.setDescription('ご用件をお書きください。')
-									.setFooter({
-										text: '業務連絡 ｜ 管理者は、以下のボタンでこのチャンネルを管理できます。',
-									})
-									.setColor(0x1f6e00);
-								const menuButton = new ActionRowBuilder().addComponents(
-									new ButtonBuilder()
-										.setCustomId('menu')
-										.setLabel('メニューを開く')
-										.setStyle(ButtonStyle.Primary)
-										.setEmoji('📚'),
-								);
-								const guideMessage = await channel.send({
-									content: `<@${customerUserId}>様へ`,
-									embeds: [embed],
-									components: [menuButton],
-								});
-
-								// 案内メッセージをサポートチャンネルにピン止め
-								guideMessage.pin();
-
-								// サポートチケットの作成完了メッセージを送信
-								await interaction.editReply({
-									content: `${channel}にてお伺い致します。そちらのチャンネルへご移動ください。`,
-									flags: MessageFlags.Ephemeral,
-								});
-							})
-							.catch(async (err) => {
-								await interaction.channel.send(
-									'サポートチケット作成時にエラーが発生しました。管理者が対応いたしますので、しばらくお待ちください。',
-								);
-								console.log(err);
-								return;
-							});
 						break;
 					}
 					case 'menu': {
@@ -470,6 +470,41 @@ module.exports = async (client, interaction) => {
 						await interaction.reply({
 							content: '❌ 未知のボタンが押されました。',
 							flags: MessageFlags.Ephemeral,
+						});
+						break;
+					}
+				}
+			}
+
+			// セレクトメニューのインタラクションの処理
+			if (interaction?.isStringSelectMenu()) {
+				const customId = interaction.customId;
+
+				switch (customId) {
+					case 'support_subject_select': {
+						// support_subject_selectメニューが選択されたときの処理
+						const selectedValue = interaction.values[0];
+
+						const supportType = {
+							bug_bot: '不具合のご報告(BOT)',
+							bug_website: '不具合のご報告(Webサイト)',
+							subscription: 'サブスクリプションに関する問い合わせ',
+							question: 'その他の質問',
+						};
+
+						const createTicketButton = new ActionRowBuilder().addComponents(
+							new ButtonBuilder()
+								.setCustomId(`openTicket_${selectedValue}`)
+								.setLabel(
+									`「${supportType[selectedValue]}」のチケットを作成する`,
+								)
+								.setStyle(ButtonStyle.Primary)
+								.setEmoji('🎫'),
+						);
+
+						// 選択内容をephemeralメッセージの編集で記入する
+						await interaction.update({
+							components: [createTicketButton],
 						});
 						break;
 					}
