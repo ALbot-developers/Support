@@ -8,7 +8,6 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	EmbedBuilder,
-	embedLength,
 } = require('discord.js');
 const isSupportMember = require('../lib/isSupportMember.js');
 const discordLogTranscript = require('discord-html-transcripts');
@@ -76,7 +75,7 @@ module.exports = async (client, interaction) => {
 							(channel) =>
 								//close済みのチケットはトピックが「closed: 000000」のようになるので、ここでは完全一致を使って確認する
 								channel.topic === customerUserId &&
-								channel.type === ChannelType.GuildText
+								channel.type === ChannelType.GuildText,
 						);
 						// 既にサポートチケットがある場合
 						if (supportChannel) {
@@ -93,7 +92,7 @@ module.exports = async (client, interaction) => {
 						// サポート対応用のカテゴリーが見つからなかった場合
 						if (!openTicketCategory)
 							return interaction.channel.send(
-								'❌ サポート対応用のカテゴリーが見つかりませんでした。BOTおよびサーバーの管理者は以下の項目の確認をお願いします。\n- 環境変数 `OPEN_TICKET_CATEGORY_ID` が正しいか\n- サーバーにサポート対応用のカテゴリーが存在するか\n- BOTに適切な権限が付与されているか'
+								'❌ サポート対応用のカテゴリーが見つかりませんでした。BOTおよびサーバーの管理者は以下の項目の確認をお願いします。\n- 環境変数 `OPEN_TICKET_CATEGORY_ID` が正しいか\n- サーバーにサポート対応用のカテゴリーが存在するか\n- BOTに適切な権限が付与されているか',
 							);
 
 						const customerUserName = interaction.user.username;
@@ -134,7 +133,7 @@ module.exports = async (client, interaction) => {
 										.setCustomId('menu')
 										.setLabel('メニューを開く')
 										.setStyle(ButtonStyle.Primary)
-										.setEmoji('📚')
+										.setEmoji('📚'),
 								);
 								const guideMessage = await channel.send({
 									content: `<@${customerUserId}>様へ`,
@@ -153,7 +152,7 @@ module.exports = async (client, interaction) => {
 							})
 							.catch(async (err) => {
 								await interaction.channel.send(
-									'サポートチケット作成時にエラーが発生しました。管理者が対応いたしますので、しばらくお待ちください。'
+									'サポートチケット作成時にエラーが発生しました。管理者が対応いたしますので、しばらくお待ちください。',
 								);
 								console.log(err);
 								return;
@@ -187,16 +186,16 @@ module.exports = async (client, interaction) => {
 								new ButtonBuilder()
 									.setCustomId('cancel')
 									.setLabel('メニューを閉じる')
-									.setStyle(ButtonStyle.Secondary)
+									.setStyle(ButtonStyle.Secondary),
 							);
 							const customerUserId = interaction.channel.topic.replace(
 								/[^0-9]/g,
-								''
+								'',
 							);
 							const embed = new EmbedBuilder()
 								.setTitle('📚｜メニュー')
 								.setDescription(
-									`「📥保存する」で、このチャンネルのチャット履歴をhtml形式で保存できます。\n ※__**直近の100メッセージに限られます**__。\n「🔒ロックをする」で、<@${customerUserId}> の閲覧権限を**剥奪**します\n「🔓ロック解除」で、<@${customerUserId}> の閲覧権限を**再度付与**します。\n「⛔削除」で、このチャンネルを完全に削除します。`
+									`「📥保存する」で、このチャンネルのチャット履歴をhtml形式で保存できます。\n ※__**直近の100メッセージに限られます**__。\n「🔒ロックをする」で、<@${customerUserId}> の閲覧権限を**剥奪**します\n「🔓ロック解除」で、<@${customerUserId}> の閲覧権限を**再度付与**します。\n「⛔削除」で、このチャンネルを完全に削除します。`,
 								)
 								.setColor(0x40ffcc);
 							await interaction.reply({
@@ -225,20 +224,20 @@ module.exports = async (client, interaction) => {
 								{
 									limit: -1,
 									filename: `supportLogFor_${customerUserId}.html`,
-								}
+								},
 							);
 
 							const embed = new EmbedBuilder()
 								.setTitle('📤｜出力しました')
 								.setDescription(
-									'__**必ず、ご自身のデバイスにダウンロードしてください！**__'
+									'__**必ず、ご自身のデバイスにダウンロードしてください！**__',
 								)
 								.setColor(0x20ff20);
 							const cancelButton = new ActionRowBuilder().addComponents(
 								new ButtonBuilder()
 									.setCustomId('cancel')
 									.setLabel('閉じる')
-									.setStyle(ButtonStyle.Secondary)
+									.setStyle(ButtonStyle.Secondary),
 							);
 
 							await interaction.reply({
@@ -269,7 +268,7 @@ module.exports = async (client, interaction) => {
 											type: 'member', // role or member
 										},
 									],
-									'closeしたため'
+									'closeしたため',
 								);
 
 								interaction.message.delete();
@@ -301,7 +300,7 @@ module.exports = async (client, interaction) => {
 							if (interaction.channel.topic.startsWith('closed:')) {
 								const customerUserId = interaction.channel.topic.replace(
 									/[^0-9]/g,
-									''
+									'',
 								);
 								interaction.channel.setTopic(customerUserId);
 								interaction.channel.permissionOverwrites.set(
@@ -318,7 +317,7 @@ module.exports = async (client, interaction) => {
 											type: 'member', // role or member
 										},
 									],
-									'reopenしたため'
+									'reopenしたため',
 								);
 
 								interaction.message.delete();
@@ -352,7 +351,7 @@ module.exports = async (client, interaction) => {
 							const deleteConfirmEmbed = new EmbedBuilder()
 								.setTitle('⛔｜チャンネル削除確認')
 								.setDescription(
-									'本当にこのチャンネルを削除しますか？\nこの操作を実行すると、__**このチャンネルのログは永久に閲覧できなくなります**__。'
+									'本当にこのチャンネルを削除しますか？\nこの操作を実行すると、__**このチャンネルのログは永久に閲覧できなくなります**__。',
 								)
 								.setColor(0xff0000);
 							const deleteConfirmButton = new ActionRowBuilder().addComponents(
@@ -363,7 +362,7 @@ module.exports = async (client, interaction) => {
 								new ButtonBuilder()
 									.setCustomId('delete_confirm')
 									.setLabel('完全に削除する')
-									.setStyle(ButtonStyle.Danger)
+									.setStyle(ButtonStyle.Danger),
 							);
 							await interaction.channel.send({
 								embeds: [deleteConfirmEmbed],
