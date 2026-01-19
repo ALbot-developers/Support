@@ -60,7 +60,7 @@ module.exports = {
 					.setCustomId('support')
 					.setLabel('問い合わせを開始する')
 					.setStyle(ButtonStyle.Success)
-					.setEmoji('🎫'),
+					.setEmoji('✉'),
 			);
 
 			//containerとbutton送信
