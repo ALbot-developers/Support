@@ -1,5 +1,4 @@
 const {
-	InteractionType,
 	ApplicationCommandType,
 	MessageFlags,
 	ChannelType,
@@ -8,6 +7,8 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	EmbedBuilder,
+	StringSelectMenuBuilder,
+	StringSelectMenuOptionBuilder,
 } = require('discord.js');
 const isSupportMember = require('../lib/isSupportMember.js');
 const discordLogTranscript = require('discord-html-transcripts');
@@ -26,7 +27,7 @@ module.exports = async (client, interaction) => {
 			});
 		} else {
 			// スラッシュコマンドの詳しい処理は、コマンドのファイル側で行う
-			if (interaction?.type === InteractionType.ApplicationCommand) {
+			if (interaction?.isChatInputCommand()) {
 				fs.readdir('./commands', (err, files) => {
 					if (err) throw err;
 					files.forEach(async (f) => {
@@ -59,13 +60,66 @@ module.exports = async (client, interaction) => {
 			}
 
 			// ボタンを押した際のインタラクションの処理
-			if (interaction?.type === InteractionType.MessageComponent) {
+			if (interaction?.isButton()) {
 				// 必要に応じてボタンのインタラクション処理のロジックを追加
 				const customId = interaction.customId;
 
 				switch (customId) {
 					case 'support': {
 						// supportボタンが押されたときの処理
+						const embed = new EmbedBuilder()
+							.setTitle('報告の概要の選択')
+							.setDescription(
+								'以下のメニューから、報告したい内容を選択してください。\n当てはまるものが無い場合は「その他の質問」を選択してください。',
+							)
+							.setColor(0x00ffff);
+
+						const dropdownMenu = new ActionRowBuilder().addComponents(
+							new StringSelectMenuBuilder()
+								.setCustomId('support_subject_select')
+								.setPlaceholder('問い合わせの概要を選択してください')
+								.setRequired(true)
+								.setMinValues(1)
+								.setMaxValues(1)
+								.addOptions(
+									new StringSelectMenuOptionBuilder()
+										.setLabel('不具合のご報告(BOT)')
+										.setDescription(
+											'サブスクリプションに関係のないBOTの不具合のご報告など',
+										)
+										.setValue('bug_report_bot')
+										.setEmoji('🔥'),
+									new StringSelectMenuOptionBuilder()
+										.setLabel('不具合のご報告(Webサイト)')
+										.setDescription(
+											'サブスクリプションに関係のないWebサイトの不具合のご報告など',
+										)
+										.setValue('bug_report_website')
+										.setEmoji('🔥'),
+									new StringSelectMenuOptionBuilder()
+										.setLabel('サブスクリプションに関する問い合わせ')
+										.setDescription(
+											'サブスクリプションの購入・更新・キャンセルなどに関する問い合わせ',
+										)
+										.setValue('subscription_inquiry')
+										.setEmoji('💳'),
+									new StringSelectMenuOptionBuilder()
+										.setLabel('その他の質問')
+										.setDescription('その他の質問・要望・提案など')
+										.setValue('question')
+										.setEmoji('❓'),
+								),
+						);
+
+						await interaction.reply({
+							embeds: [embed],
+							components: [dropdownMenu],
+							flags: MessageFlags.Ephemeral,
+						});
+						break;
+					}
+					case 'openTicket': {
+						// openTicketボタンが押されたときの処理
 						await interaction.deferReply({
 							flags: MessageFlags.Ephemeral,
 						});
