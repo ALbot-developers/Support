@@ -5,7 +5,7 @@ const {
 	MessageFlags,
 	EmbedBuilder,
 } = require('discord.js');
-const faqIndexGenerator = require(`../lib/faqIndexGenerator.js`);
+const faqIndexManager = require(`../lib/faqIndexManager.js`);
 
 // FAQの目次を生成するコマンド
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
 
 	run: async (client, interaction) => {
 		try {
-			const result = await faqIndexGenerator(client);
+			const result = await faqIndexManager.fullIndexGenerator(client);
 
 			if (!result) {
 				return interaction.reply({
