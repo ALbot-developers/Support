@@ -189,26 +189,21 @@ module.exports = async (client, interaction) => {
 										options.push(
 											new StringSelectMenuOptionBuilder()
 												.setLabel(categoryData.title)
-												.setDescription(
-													truncatedDescription ||
-														'お問い合わせ内容をお聞かせください',
-												)
+												.setDescription(truncatedDescription)
 												.setValue(categoryId)
 												.setEmoji('📚'),
 										);
 									}
 								}
 
-								// オプションが1つもない場合は、デフォルトのオプションを追加
-								if (options.length === 0) {
-									options.push(
-										new StringSelectMenuOptionBuilder()
-											.setLabel('一般的な質問')
-											.setDescription('お問い合わせ内容をお聞かせください')
-											.setValue('general')
-											.setEmoji('❓'),
-									);
-								}
+								// 「一般的な質問」のオプションを常に追加
+								options.push(
+									new StringSelectMenuOptionBuilder()
+										.setLabel('一般的な質問')
+										.setDescription('お問い合わせ内容をお聞かせください')
+										.setValue('general')
+										.setEmoji('❓'),
+								);
 
 								const dropdownMenu = new ActionRowBuilder().addComponents(
 									new StringSelectMenuBuilder()
