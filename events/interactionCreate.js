@@ -67,9 +67,7 @@ module.exports = async (client, interaction) => {
 
 				// チケット作成ボタンが押されたときの処理
 				if (customId.startsWith('openTicket_')) {
-					await interaction.deferReply({
-						flags: MessageFlags.Ephemeral,
-					});
+					await interaction.deferUpdate();
 
 					const customerUserId = interaction.user.id;
 					const supportChannel = await interaction.guild.channels.cache.find(
@@ -82,7 +80,8 @@ module.exports = async (client, interaction) => {
 					if (supportChannel) {
 						return interaction.editReply({
 							content: `１人１チャンネルとさせていただいております。\n<#${supportChannel.id}>が既に存在しますので、そちらをご利用ください。`,
-							flags: MessageFlags.Ephemeral,
+							embeds: [],
+							components: [],
 						});
 					}
 
@@ -148,7 +147,8 @@ module.exports = async (client, interaction) => {
 							// サポートチケットの作成完了メッセージを送信
 							await interaction.editReply({
 								content: `${channel}にてお伺い致します。そちらのチャンネルへご移動ください。`,
-								flags: MessageFlags.Ephemeral,
+								embeds: [],
+								components: [],
 							});
 						})
 						.catch(async (err) => {
