@@ -17,9 +17,13 @@ module.exports = {
 
 	run: async (client, interaction) => {
 		try {
-			const result = await faqIndexManager.fullIndexGenerator(client);
+			// FAQインデックスを構築してフォーマット
+			const [indexData, formattedIndex] = await Promise.all([
+				faqIndexManager.build(client),
+				faqIndexManager.format(client),
+			]);
 
-			if (!result) {
+			if (!indexData || !formattedIndex) {
 				return interaction.reply({
 					content:
 						'FAQの目次の生成中にエラーが発生しました。\nログを確認してください。',
@@ -27,7 +31,7 @@ module.exports = {
 				});
 			}
 
-			// 目次を生成する
+			// FAQチャンネルを取得
 			const faqChannel = await client.channels.fetch(
 				process.env.FAQ_CHANNEL_ID,
 			);
@@ -37,17 +41,13 @@ module.exports = {
 					flags: MessageFlags.Ephemeral,
 				});
 			}
-			let description = '';
-			for (const category in result) {
-				description += `- **${result[category].categoryNameJP}**\n`;
-				for (const index in result[category].faqs) {
-					description += `  - [${result[category].faqs[index].title}](https://discord.com/channels/${faqChannel.guild.id}/${faqChannel.id}/${result[category].faqs[index].messageId})\n`;
-				}
-			}
+
+			// 目次のEmbedを作成して送信
 			const embed = new EmbedBuilder()
 				.setTitle('📌｜目次')
-				.setDescription(description)
+				.setDescription(formattedIndex)
 				.setColor(0x7ed321);
+
 			await faqChannel.send({
 				embeds: [embed],
 			});
@@ -57,7 +57,14 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		} catch (err) {
-			console.log(`Error in faqIndexGenerator command: ${err}`);
+			console.error(`Error in faqIndexGenerator command: ${err}`);
+			// エラーが発生した場合、まだ返信していない場合のみ返信
+			if (!interaction.replied && !interaction.deferred) {
+				await interaction.reply({
+					content: 'コマンドの実行中にエラーが発生しました。',
+					flags: MessageFlags.Ephemeral,
+				});
+			}
 		}
 	},
 };

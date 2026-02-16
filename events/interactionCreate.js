@@ -13,6 +13,7 @@ const {
 const isSupportMember = require('../lib/isSupportMember.js');
 const discordLogTranscript = require('discord-html-transcripts');
 const fs = require('fs');
+const faqIndexManager = require(`../lib/faqIndexManager.js`);
 
 module.exports = async (client, interaction) => {
 	try {
@@ -64,8 +65,8 @@ module.exports = async (client, interaction) => {
 				// 必要に応じてボタンのインタラクション処理のロジックを追加
 				const customId = interaction.customId;
 
+				// チケット作成ボタンが押されたときの処理
 				if (customId.startsWith('openTicket_')) {
-					// チケット作成ボタンが押されたときの処理
 					await interaction.deferReply({
 						flags: MessageFlags.Ephemeral,
 					});
@@ -157,321 +158,348 @@ module.exports = async (client, interaction) => {
 							console.log(err);
 							return;
 						});
-				}
+				} else {
+					switch (customId) {
+						case 'support': {
+							// supportボタンが押されたときの処理
+							try {
+								const embed = new EmbedBuilder()
+									.setTitle('報告の概要の選択')
+									.setDescription(
+										'以下のメニューから、報告したい内容を選択してください。\n該当するカテゴリがない場合は、最も近いカテゴリを選択してください。',
+									)
+									.setColor(0x00ffff);
 
-				switch (customId) {
-					case 'support': {
-						// supportボタンが押されたときの処理
-						const embed = new EmbedBuilder()
-							.setTitle('報告の概要の選択')
-							.setDescription(
-								'以下のメニューから、報告したい内容を選択してください。\n当てはまるものが無い場合は「その他の質問」を選択してください。',
-							)
-							.setColor(0x00ffff);
+								// faqIndexManagerを使ってFAQカテゴリを動的に取得
+								const faqCategories =
+									await faqIndexManager.getCategories(client);
+								const options = [];
 
-						const dropdownMenu = new ActionRowBuilder().addComponents(
-							new StringSelectMenuBuilder()
-								.setCustomId('support_subject_select')
-								.setPlaceholder('問い合わせの概要を選択してください')
-								.setRequired(true)
-								.setMinValues(1)
-								.setMaxValues(1)
-								.addOptions(
-									new StringSelectMenuOptionBuilder()
-										.setLabel('不具合のご報告(BOT)')
-										.setDescription(
-											'サブスクリプションに関係のないBOTの不具合のご報告など',
-										)
-										.setValue('bug_bot')
-										.setEmoji('🔥'),
-									new StringSelectMenuOptionBuilder()
-										.setLabel('不具合のご報告(Webサイト)')
-										.setDescription(
-											'サブスクリプションに関係のないWebサイトの不具合のご報告など',
-										)
-										.setValue('bug_website')
-										.setEmoji('🔥'),
-									new StringSelectMenuOptionBuilder()
-										.setLabel('サブスクリプションに関する問い合わせ')
-										.setDescription(
-											'サブスクリプションの購入・更新・キャンセルなどに関する問い合わせ',
-										)
-										.setValue('subscription')
-										.setEmoji('💳'),
-									new StringSelectMenuOptionBuilder()
-										.setLabel('その他の質問')
-										.setDescription('その他の質問・要望・提案など')
-										.setValue('question')
-										.setEmoji('❓'),
-								),
-						);
+								if (faqCategories && Object.keys(faqCategories).length > 0) {
+									// FAQのカテゴリをオプションとして追加
+									for (const [categoryId, categoryData] of Object.entries(
+										faqCategories,
+									)) {
+										const description = categoryData.description || '';
+										const truncatedDescription =
+											description.length > 100
+												? `${description.slice(0, 97)}...`
+												: description;
 
-						await interaction.reply({
-							embeds: [embed],
-							components: [dropdownMenu],
-							flags: MessageFlags.Ephemeral,
-						});
-						break;
-					}
-					case 'menu': {
-						// menuボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							const options = new ActionRowBuilder().addComponents(
-								new ButtonBuilder()
-									.setCustomId('transcript')
-									.setLabel('履歴を保存する')
-									.setStyle(ButtonStyle.Secondary)
-									.setEmoji('📥'),
-								new ButtonBuilder()
-									.setCustomId('close')
-									.setLabel('サポートを終了する')
-									.setStyle(ButtonStyle.Success)
-									.setEmoji('🔒'),
-								new ButtonBuilder()
-									.setCustomId('reopen')
-									.setLabel('サポートを再開する')
-									.setStyle(ButtonStyle.Success)
-									.setEmoji('🔓'),
-								new ButtonBuilder()
-									.setCustomId('delete')
-									.setLabel('チケットを削除する')
-									.setStyle(ButtonStyle.Danger)
-									.setEmoji('⛔'),
-								new ButtonBuilder()
-									.setCustomId('cancel')
-									.setLabel('メニューを閉じる')
-									.setStyle(ButtonStyle.Secondary),
-							);
-							const customerUserId = interaction.channel.topic.replace(
-								/[^0-9]/g,
-								'',
-							);
-							const embed = new EmbedBuilder()
-								.setTitle('📚｜メニュー')
-								.setDescription(
-									`「📥保存する」で、このチャンネルのチャット履歴をhtml形式で保存できます。\n ※__**直近の100メッセージに限られます**__。\n「🔒ロックをする」で、<@${customerUserId}> の閲覧権限を**剥奪**します\n「🔓ロック解除」で、<@${customerUserId}> の閲覧権限を**再度付与**します。\n「⛔削除」で、このチャンネルを完全に削除します。`,
-								)
-								.setColor(0x40ffcc);
-							await interaction.reply({
-								embeds: [embed],
-								components: [options],
-							});
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
-						}
-						break;
-					}
-					case 'transcript': {
-						// transcriptボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							interaction.message.delete();
+										options.push(
+											new StringSelectMenuOptionBuilder()
+												.setLabel(categoryData.title)
+												.setDescription(
+													truncatedDescription ||
+														'お問い合わせ内容をお聞かせください',
+												)
+												.setValue(categoryId)
+												.setEmoji('📚'),
+										);
+									}
+								}
 
-							const customerUserId = interaction.channel.topic.substr(6);
+								// オプションが1つもない場合は、デフォルトのオプションを追加
+								if (options.length === 0) {
+									options.push(
+										new StringSelectMenuOptionBuilder()
+											.setLabel('一般的な質問')
+											.setDescription('お問い合わせ内容をお聞かせください')
+											.setValue('general')
+											.setEmoji('❓'),
+									);
+								}
 
-							// Must be awaited
-							const attachment = await discordLogTranscript.createTranscript(
-								interaction.channel,
-								{
-									limit: -1,
-									filename: `supportLogFor_${customerUserId}.html`,
-								},
-							);
-
-							const embed = new EmbedBuilder()
-								.setTitle('📤｜出力しました')
-								.setDescription(
-									'__**必ず、ご自身のデバイスにダウンロードしてください！**__',
-								)
-								.setColor(0x20ff20);
-							const cancelButton = new ActionRowBuilder().addComponents(
-								new ButtonBuilder()
-									.setCustomId('cancel')
-									.setLabel('閉じる')
-									.setStyle(ButtonStyle.Secondary),
-							);
-
-							await interaction.reply({
-								embeds: [embed],
-								files: [attachment],
-								components: [cancelButton],
-							});
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
-						}
-						break;
-					}
-					case 'close': {
-						// closeボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							const customerUserId = interaction.channel.topic;
-							if (!customerUserId.startsWith('closed:')) {
-								await interaction.channel.setTopic(`closed:${customerUserId}`);
-								await interaction.channel.permissionOverwrites.set(
-									[
-										{
-											id: customerUserId,
-											deny: [PermissionsBitField.Flags.ViewChannel], // 許可しない権限
-											type: 'member', // role or member
-										},
-									],
-									'closeしたため',
+								const dropdownMenu = new ActionRowBuilder().addComponents(
+									new StringSelectMenuBuilder()
+										.setCustomId('support_subject_select')
+										.setPlaceholder('問い合わせの概要を選択してください')
+										.setRequired(true)
+										.setMinValues(1)
+										.setMaxValues(1)
+										.addOptions(options),
 								);
 
-								interaction.message.delete();
-
-								const closedEmbed = new EmbedBuilder()
-									.setTitle('🔒｜サポートを終了しました！')
-									.setColor(0x00ff00);
-								interaction.reply({
-									embeds: [closedEmbed],
-								});
-							} else {
 								await interaction.reply({
-									content: 'すでにCloseされています',
+									embeds: [embed],
+									components: [dropdownMenu],
+									flags: MessageFlags.Ephemeral,
+								});
+							} catch (err) {
+								console.error(`Error in support button: ${err}`);
+								await interaction.reply({
+									content: 'エラーが発生しました。もう一度お試しください。',
 									flags: MessageFlags.Ephemeral,
 								});
 							}
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
+							break;
 						}
-						break;
-					}
-					case 'reopen': {
-						// reopenボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							if (interaction.channel.topic.startsWith('closed:')) {
+						case 'menu': {
+							// menuボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								const options = new ActionRowBuilder().addComponents(
+									new ButtonBuilder()
+										.setCustomId('transcript')
+										.setLabel('履歴を保存する')
+										.setStyle(ButtonStyle.Secondary)
+										.setEmoji('📥'),
+									new ButtonBuilder()
+										.setCustomId('close')
+										.setLabel('サポートを終了する')
+										.setStyle(ButtonStyle.Success)
+										.setEmoji('🔒'),
+									new ButtonBuilder()
+										.setCustomId('reopen')
+										.setLabel('サポートを再開する')
+										.setStyle(ButtonStyle.Success)
+										.setEmoji('🔓'),
+									new ButtonBuilder()
+										.setCustomId('delete')
+										.setLabel('チケットを削除する')
+										.setStyle(ButtonStyle.Danger)
+										.setEmoji('⛔'),
+									new ButtonBuilder()
+										.setCustomId('cancel')
+										.setLabel('メニューを閉じる')
+										.setStyle(ButtonStyle.Secondary),
+								);
 								const customerUserId = interaction.channel.topic.replace(
 									/[^0-9]/g,
 									'',
 								);
-								interaction.channel.setTopic(customerUserId);
-								interaction.channel.permissionOverwrites.set(
-									[
-										{
-											id: customerUserId,
-											allow: [
-												PermissionsBitField.Flags.ViewChannel,
-												PermissionsBitField.Flags.ReadMessageHistory,
-												PermissionsBitField.Flags.SendMessages,
-												PermissionsBitField.Flags.AttachFiles,
-												PermissionsBitField.Flags.AddReactions,
-											], // 許可する権限
-											type: 'member', // role or member
-										},
-									],
-									'reopenしたため',
-								);
-
-								interaction.message.delete();
-
-								const reopenedEmbed = new EmbedBuilder()
-									.setTitle('🔓｜サポートを再開しました！')
-									.setColor(0x20ff20);
-								await interaction.channel.send({
-									embeds: [reopenedEmbed],
+								const embed = new EmbedBuilder()
+									.setTitle('📚｜メニュー')
+									.setDescription(
+										`「📥保存する」で、このチャンネルのチャット履歴をhtml形式で保存できます。\n ※__**直近の100メッセージに限られます**__。\n「🔒ロックをする」で、<@${customerUserId}> の閲覧権限を**剥奪**します\n「🔓ロック解除」で、<@${customerUserId}> の閲覧権限を**再度付与**します。\n「⛔削除」で、このチャンネルを完全に削除します。`,
+									)
+									.setColor(0x40ffcc);
+								await interaction.reply({
+									embeds: [embed],
+									components: [options],
 								});
 							} else {
+								//管理者権限無いとき
 								await interaction.reply({
-									content: 'まだCloseされていません',
+									content: 'このボタンは管理者のみ有効です',
 									flags: MessageFlags.Ephemeral,
 								});
 							}
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
+							break;
 						}
-						break;
-					}
-					case 'delete': {
-						// deleteボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							interaction.message.delete();
+						case 'transcript': {
+							// transcriptボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								interaction.message.delete();
 
-							const deleteConfirmEmbed = new EmbedBuilder()
-								.setTitle('⛔｜チャンネル削除確認')
-								.setDescription(
-									'本当にこのチャンネルを削除しますか？\nこの操作を実行すると、__**このチャンネルのログは永久に閲覧できなくなります**__。',
-								)
-								.setColor(0xff0000);
-							const deleteConfirmButton = new ActionRowBuilder().addComponents(
-								new ButtonBuilder()
-									.setCustomId('cancel')
-									.setLabel('やめる')
-									.setStyle(ButtonStyle.Secondary),
-								new ButtonBuilder()
-									.setCustomId('delete_confirm')
-									.setLabel('完全に削除する')
-									.setStyle(ButtonStyle.Danger),
+								const customerUserId = interaction.channel.topic.substr(6);
+
+								// Must be awaited
+								const attachment = await discordLogTranscript.createTranscript(
+									interaction.channel,
+									{
+										limit: -1,
+										filename: `supportLogFor_${customerUserId}.html`,
+									},
+								);
+
+								const embed = new EmbedBuilder()
+									.setTitle('📤｜出力しました')
+									.setDescription(
+										'__**必ず、ご自身のデバイスにダウンロードしてください！**__',
+									)
+									.setColor(0x20ff20);
+								const cancelButton = new ActionRowBuilder().addComponents(
+									new ButtonBuilder()
+										.setCustomId('cancel')
+										.setLabel('閉じる')
+										.setStyle(ButtonStyle.Secondary),
+								);
+
+								await interaction.reply({
+									embeds: [embed],
+									files: [attachment],
+									components: [cancelButton],
+								});
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						case 'close': {
+							// closeボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								const customerUserId = interaction.channel.topic;
+								if (!customerUserId.startsWith('closed:')) {
+									await interaction.channel.setTopic(
+										`closed:${customerUserId}`,
+									);
+									await interaction.channel.permissionOverwrites.set(
+										[
+											{
+												id: customerUserId,
+												deny: [PermissionsBitField.Flags.ViewChannel], // 許可しない権限
+												type: 'member', // role or member
+											},
+										],
+										'closeしたため',
+									);
+
+									interaction.message.delete();
+
+									const closedEmbed = new EmbedBuilder()
+										.setTitle('🔒｜サポートを終了しました！')
+										.setColor(0x00ff00);
+									interaction.reply({
+										embeds: [closedEmbed],
+									});
+								} else {
+									await interaction.reply({
+										content: 'すでにCloseされています',
+										flags: MessageFlags.Ephemeral,
+									});
+								}
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						case 'reopen': {
+							// reopenボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								if (interaction.channel.topic.startsWith('closed:')) {
+									const customerUserId = interaction.channel.topic.replace(
+										/[^0-9]/g,
+										'',
+									);
+									interaction.channel.setTopic(customerUserId);
+									interaction.channel.permissionOverwrites.set(
+										[
+											{
+												id: customerUserId,
+												allow: [
+													PermissionsBitField.Flags.ViewChannel,
+													PermissionsBitField.Flags.ReadMessageHistory,
+													PermissionsBitField.Flags.SendMessages,
+													PermissionsBitField.Flags.AttachFiles,
+													PermissionsBitField.Flags.AddReactions,
+												], // 許可する権限
+												type: 'member', // role or member
+											},
+										],
+										'reopenしたため',
+									);
+
+									interaction.message.delete();
+
+									const reopenedEmbed = new EmbedBuilder()
+										.setTitle('🔓｜サポートを再開しました！')
+										.setColor(0x20ff20);
+									await interaction.channel.send({
+										embeds: [reopenedEmbed],
+									});
+								} else {
+									await interaction.reply({
+										content: 'まだCloseされていません',
+										flags: MessageFlags.Ephemeral,
+									});
+								}
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						case 'delete': {
+							// deleteボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								interaction.message.delete();
+
+								const deleteConfirmEmbed = new EmbedBuilder()
+									.setTitle('⛔｜チャンネル削除確認')
+									.setDescription(
+										'本当にこのチャンネルを削除しますか？\nこの操作を実行すると、__**このチャンネルのログは永久に閲覧できなくなります**__。',
+									)
+									.setColor(0xff0000);
+								const deleteConfirmButton =
+									new ActionRowBuilder().addComponents(
+										new ButtonBuilder()
+											.setCustomId('cancel')
+											.setLabel('やめる')
+											.setStyle(ButtonStyle.Secondary),
+										new ButtonBuilder()
+											.setCustomId('delete_confirm')
+											.setLabel('完全に削除する')
+											.setStyle(ButtonStyle.Danger),
+									);
+								await interaction.channel.send({
+									embeds: [deleteConfirmEmbed],
+									components: [deleteConfirmButton],
+								});
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						case 'cancel': {
+							// cancelボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								await interaction.message.delete();
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						case 'delete_confirm': {
+							// delete_confirmボタンが押されたときの処理
+							if (isSupportMember(client, interaction.member.user.id)) {
+								await interaction.reply('まもなく削除されます…');
+								const deleteChannelId = interaction.channel.id;
+								const deleteChannel =
+									interaction.guild.channels.cache.get(deleteChannelId);
+								setTimeout(() => {
+									deleteChannel
+										.delete()
+										.catch((err) => interaction.reply(`エラー:${err.message}`));
+								}, 5000);
+							} else {
+								//管理者権限無いとき
+								await interaction.reply({
+									content: 'このボタンは管理者のみ有効です',
+									flags: MessageFlags.Ephemeral,
+								});
+							}
+							break;
+						}
+						default: {
+							// 未知のカスタムIDの場合の処理
+							console.warn(
+								`Unknown button interaction was received with customId: ${customId}`,
 							);
-							await interaction.channel.send({
-								embeds: [deleteConfirmEmbed],
-								components: [deleteConfirmButton],
-							});
-						} else {
-							//管理者権限無いとき
 							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
+								content: '❌ 未知のボタンが押されました。',
 								flags: MessageFlags.Ephemeral,
 							});
+							break;
 						}
-						break;
-					}
-					case 'cancel': {
-						// cancelボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							await interaction.message.delete();
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
-						}
-						break;
-					}
-					case 'delete_confirm': {
-						// delete_confirmボタンが押されたときの処理
-						if (isSupportMember(client, interaction.member.user.id)) {
-							await interaction.reply('まもなく削除されます…');
-							const deleteChannelId = interaction.channel.id;
-							const deleteChannel =
-								interaction.guild.channels.cache.get(deleteChannelId);
-							setTimeout(() => {
-								deleteChannel
-									.delete()
-									.catch((err) => interaction.reply(`エラー:${err.message}`));
-							}, 5000);
-						} else {
-							//管理者権限無いとき
-							await interaction.reply({
-								content: 'このボタンは管理者のみ有効です',
-								flags: MessageFlags.Ephemeral,
-							});
-						}
-						break;
-					}
-					default: {
-						// 未知のカスタムIDの場合の処理
-						await interaction.reply({
-							content: '❌ 未知のボタンが押されました。',
-							flags: MessageFlags.Ephemeral,
-						});
-						break;
 					}
 				}
 			}
@@ -483,35 +511,55 @@ module.exports = async (client, interaction) => {
 				switch (customId) {
 					case 'support_subject_select': {
 						// support_subject_selectメニューが選択されたときの処理
-						const selectedValue = interaction.values[0];
+						try {
+							const selectedValue = interaction.values[0];
 
-						const supportType = {
-							bug_bot: '不具合のご報告(BOT)',
-							bug_website: '不具合のご報告(Webサイト)',
-							subscription: 'サブスクリプションに関する問い合わせ',
-							question: 'その他の質問',
-						};
+							const [categories, faqFormatted] = await Promise.all([
+								faqIndexManager.getCategories(client),
+								faqIndexManager.format(client, selectedValue),
+							]);
 
-						const createTicketButton = new ActionRowBuilder().addComponents(
-							new ButtonBuilder()
-								.setCustomId(`openTicket_${selectedValue}`)
-								.setLabel(
-									`「${supportType[selectedValue]}」のチケットを作成する`,
+							const categoryTitle =
+								faqFormatted?.title ||
+								categories?.[selectedValue]?.title ||
+								'その他';
+							const faqsText =
+								faqFormatted?.faqs || 'FAQが見つかりませんでした。';
+
+							const embed = new EmbedBuilder()
+								.setTitle('よくある質問のご案内とチケット作成')
+								.setDescription(
+									`ご質問の内容に関わる、よくある質問は以下の通りです。\nそれでも解決しない場合は、下のボタンからチケットを作成してください。\n\n**「${categoryTitle}」に関するよくある質問**\n${faqsText}`,
 								)
-								.setStyle(ButtonStyle.Primary)
-								.setEmoji('🎫'),
-						);
+								.setColor(0x00ffff);
 
-						// 選択内容をephemeralメッセージの編集で記入する
-						await interaction.update({
-							components: [createTicketButton],
-						});
+							const createTicketButton = new ActionRowBuilder().addComponents(
+								new ButtonBuilder()
+									.setCustomId(`openTicket_${selectedValue}`)
+									.setLabel(`「${categoryTitle}」のチケットを作成する`)
+									.setStyle(ButtonStyle.Primary)
+									.setEmoji('🎫'),
+							);
+
+							// 選択内容をephemeralメッセージの編集で記入する
+							await interaction.update({
+								embeds: [embed],
+								components: [createTicketButton],
+							});
+						} catch (err) {
+							console.error(`Error in support_subject_select: ${err}`);
+							await interaction.reply({
+								content: 'エラーが発生しました。もう一度お試しください。',
+								flags: MessageFlags.Ephemeral,
+							});
+						}
 						break;
 					}
 				}
 			}
 		}
 	} catch (err) {
-		console.error(`[Error] interactionCreate Event: ${err}`);
+		console.error('[Error] interactionCreate Event:');
+		console.error(err);
 	}
 };
