@@ -519,23 +519,26 @@ module.exports = async (client, interaction) => {
 							]);
 
 							const categoryTitle =
-								faqFormatted?.title ||
-								categories?.[selectedValue]?.title ||
-								'その他';
-							const faqsText =
-								faqFormatted?.faqs || 'FAQが見つかりませんでした。';
+								faqFormatted?.title || categories?.[selectedValue]?.title;
+							const categoryTitleString = categoryTitle
+								? `**「${categoryTitle}」に関するよくある質問**\n`
+								: '';
+							const faqsListString =
+								faqFormatted?.faqs || '関連するFAQが見つかりませんでした。';
 
 							const embed = new EmbedBuilder()
 								.setTitle('よくある質問のご案内とチケット作成')
 								.setDescription(
-									`ご質問の内容に関わる、よくある質問は以下の通りです。\nそれでも解決しない場合は、下のボタンからチケットを作成してください。\n\n**「${categoryTitle}」に関するよくある質問**\n${faqsText}`,
+									`ご質問の内容に関わる、よくある質問は以下の通りです。\nそれでも解決しない場合は、下のボタンからチケットを作成してください。\n\n${categoryTitleString}${faqsListString}`,
 								)
 								.setColor(0x00ffff);
 
 							const createTicketButton = new ActionRowBuilder().addComponents(
 								new ButtonBuilder()
 									.setCustomId(`openTicket_${selectedValue}`)
-									.setLabel(`「${categoryTitle}」のチケットを作成する`)
+									.setLabel(
+										`「${categoryTitle || 'その他'}」のチケットを作成する`,
+									)
 									.setStyle(ButtonStyle.Primary)
 									.setEmoji('🎫'),
 							);
