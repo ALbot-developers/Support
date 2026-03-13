@@ -511,7 +511,11 @@ module.exports = async (client, interaction) => {
 
 							const [categories, faqFormatted] = await Promise.all([
 								faqIndexManager.getCategories(client),
-								faqIndexManager.format(client, selectedValue),
+								faqIndexManager.format(
+									client,
+									Object,
+									selectedValue === 'general' ? null : selectedValue,
+								),
 							]);
 
 							const categoryTitle =

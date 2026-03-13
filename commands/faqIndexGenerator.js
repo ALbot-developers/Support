@@ -20,7 +20,7 @@ module.exports = {
 			// FAQインデックスを構築してフォーマット
 			const [indexData, formattedIndex] = await Promise.all([
 				faqIndexManager.build(client),
-				faqIndexManager.format(client),
+				faqIndexManager.format(client, String),
 			]);
 
 			if (!indexData || !formattedIndex) {
